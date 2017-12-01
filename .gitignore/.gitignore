@@ -1,0 +1,454 @@
+Tab Tab1 = instance.ActiveTab;
+
+SibboraHelper.WebHelper wHelper = new SibboraHelper.WebHelper(instance, project);
+wHelper.GlobalKMEmulate = true;
+
+bool ProtectXPath = true;
+
+Random rndGenerator = new Random();
+int intRandomNumber = 0;
+int i=0;
+
+var tblMultiakk = project.Tables["multiakk"];
+
+string strSmsService = project.Variables["SMS"].Value;
+string strCaptchaService = project.Variables["captcha_service"].Value;
+
+int PauseBefore = rndGenerator.Next(0, 50);
+int PauseBetweenChecks = rndGenerator.Next(0, 50);
+int Timeout = rndGenerator.Next(15000, 30000);
+int FullEmulationDelayFrom = rndGenerator.Next(0, 50);
+int FullEmulationDelayTo = rndGenerator.Next(0, 50);
+int SendTextMinDelay = rndGenerator.Next(0, 50);
+int SendTextMaxDelay = rndGenerator.Next(0, 50);
+
+int intSpeedModeSend = rndGenerator.Next(0, 5000);
+wHelper.PauseBefore = intSpeedModeSend;
+
+string strPathPromoImg = project.Variables["promoImg"].Value;
+string strTextPromo = project.Variables["textPromo"].Value;
+string strMonth = string.Empty;
+string strAPIResponse = string.Empty;
+
+IZennoList lstProxy = project.Lists["proxy"];
+string strProxyList = project.Variables["proxy"].Value;
+string strProyType = string.Empty;
+List<string> lstProxyTemp = new List<string>();
+string strProxy = string.Empty;
+if (strProxyList!=string.Empty) {
+	if (lstProxy.Count==0) {
+		project.SendInfoToLog("Добавьте прокси в список, на данным момент работаем без прокси",true);
+	} else {
+		lock (SyncObjects.ListSyncer) {
+			strProxy = lstProxy[0];
+			lstProxy.RemoveAt(0);
+			lstProxy.Add(strProxy);
+			instance.SetProxy(strProxy, false, true, true);
+			strAPIResponse = ZennoPoster.HttpGet("https://whoer.net/ru", strProxy, "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.BodyOnly, 30000);
+			strAPIResponse = new Regex(@"(?<=<span\ class=""cont\ \ overdots"">)[\w\W]*?(?=</dd>)").Match(strAPIResponse).Value;
+			if (strAPIResponse.Contains("Ru") || strAPIResponse.Contains("ru")) {
+				Random r = new Random();
+				string[] acceptLanguageSet = {
+				    "ru-RU,ru;q=0.8,en-US;q=0.6,en;q=0.4",
+				    "ru-RU,ru;q=0.9,en;q=0.8",
+				    "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3"
+				};
+				// Устанавливаем Accept-Language
+				string acceptLanguage = acceptLanguageSet[r.Next(0, acceptLanguageSet.Length)].ToString();
+				project.Profile.AcceptLanguage = acceptLanguage;
+				// Устанавливаем настройки языка
+				project.Profile.UserAgentBrowserLanguage = acceptLanguage.Substring(0, acceptLanguage.IndexOf(','));
+				project.Profile.UserAgentLanguage = acceptLanguage.Substring(0, acceptLanguage.IndexOf(','));
+			} else {
+				Random R = new Random();
+				string[] acceptLanguageSet1 = {
+						"en-US,en;q=0.5"
+				};
+				string acceptLanguage1 = acceptLanguageSet1[R.Next(0, acceptLanguageSet1.Length)].ToString();
+				project.Profile.AcceptLanguage = acceptLanguage1;
+				// Устанавливаем настройки языка
+				project.Profile.UserAgentBrowserLanguage = acceptLanguage1.Substring(0, acceptLanguage1.IndexOf(','));
+				project.Profile.UserAgentLanguage = acceptLanguage1.Substring(0, acceptLanguage1.IndexOf(','));
+			}
+		}
+	}
+} else {
+	string strAPIResponse2 = ZennoPoster.HttpGet("https://whoer.net/ru", strProxy, "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.BodyOnly, 30000);
+	strAPIResponse2 = new Regex(@"(?<=\n<span\ class=""cont"">)[\w\W]*(?=<span\ class=""ico-holder\ region"">)").Match(strAPIResponse2).Value;
+	if (strAPIResponse2.Contains("Rus") || strAPIResponse2.Contains("rus")) {
+		Random ra = new Random();
+		string[] acceptLanguageSet2 = {
+		    "ru-RU,ru;q=0.8,en-US;q=0.6,en;q=0.4",
+		    "ru-RU,ru;q=0.9,en;q=0.8",
+		    "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3"
+		};
+		// Устанавливаем Accept-Language
+		string acceptLanguage2 = acceptLanguageSet2[ra.Next(0, acceptLanguageSet2.Length)].ToString();
+		project.Profile.AcceptLanguage = acceptLanguage2;
+		// Устанавливаем настройки языка
+		project.Profile.UserAgentBrowserLanguage = acceptLanguage2.Substring(0, acceptLanguage2.IndexOf(','));
+		project.Profile.UserAgentLanguage = acceptLanguage2.Substring(0, acceptLanguage2.IndexOf(','));
+	} else {
+		Random Ra = new Random();
+		string[] acceptLanguageSet3 = {
+				"en-US,en;q=0.5"
+		};
+		string acceptLanguage3 = acceptLanguageSet3[Ra.Next(0, acceptLanguageSet3.Length)].ToString();
+		project.Profile.AcceptLanguage = acceptLanguage3;
+		// Устанавливаем настройки языка
+		project.Profile.UserAgentBrowserLanguage = acceptLanguage3.Substring(0, acceptLanguage3.IndexOf(','));
+		project.Profile.UserAgentLanguage = acceptLanguage3.Substring(0, acceptLanguage3.IndexOf(','));
+	}
+	instance.SetProxy("", false, true, true);
+}
+
+List<string> lstTemp = new List<string>(); 
+List<string> lstIMG = new List<string>(); 
+
+// путь к ReCaptchaGnizer и Recaptcha_autosubmit
+string rcg_path_auto = string.Empty;
+string rcg_path = string.Empty;
+string strResultFileName = String.Empty; //Объявим переменную, в которую будет помещён путь к файлу
+string strSourceReCaptchaGnizer = project.Directory + @"\AutoReg PRO\";
+lstTemp.AddRange(Directory.GetFiles(strSourceReCaptchaGnizer, "*.xmlz", SearchOption.AllDirectories));
+for (i=0; i<20; i++) {
+	if (lstTemp.Count==0) break;
+	strResultFileName = lstTemp[0];
+	if (strResultFileName.Contains("ReCaptchaGnizer_autosubmit")) {
+		rcg_path_auto = Path.Combine(strResultFileName);
+		if(!File.Exists(rcg_path_auto)) {
+		    throw new Exception(String.Format("Шаблон ReCaptchaGnizer_autosubmit не найден: {0}", rcg_path_auto));
+		}
+		lstTemp.RemoveAt(0);
+	} else {
+		rcg_path = Path.Combine(strResultFileName);
+		if(!File.Exists(rcg_path)) {
+		    throw new Exception(String.Format("Шаблон ReCaptchaGnizer не найден: {0}", rcg_path));
+		}
+		lstTemp.RemoveAt(0);
+		continue;
+	}
+}
+
+var mapVars = new List<Tuple<string, string>>();
+mapVars.Add(new Tuple<string, string>("proxy", "IN_proxy"));  // proxy - переменная в текущем проекте, IN_proxy - переменная в ReCaptchaGnizer
+mapVars.Add(new Tuple<string, string>("proxytype", "IN_proxytype"));  // proxytype - переменная в текущем проекте, IN_proxytype - переменная в ReCaptchaGnizer
+
+Tab1.Navigate("https://vk.com/");
+
+wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@id,'first_name')]", 0, project.Profile.Name);
+wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@id,'last_name')]", 0, project.Profile.Surname);
+wHelper.SetElementValueXPath(Tab1, true, null, "//div[contains(@id, 'container1')]", 0, project.Profile.BornDay.ToString(), ThrowErrors: false);
+instance.SendText("{ENTER}", 15);
+
+if (Tab1.FindElementByXPath("//h2[contains(@class, '_header')]",0).InnerText=="Впервые ВКонтакте?") {
+	List<string> lstMonthRu = new List<string>() {
+		"Январь",
+		"Февраля",
+		"Марта",
+		"Апреля",
+		"Мая",
+		"Июня",
+		"Июля",
+		"Августа",
+		"Сентября",
+		"Октября",
+		"Ноября",
+		"Декабря",	
+	};
+	int RND = rndGenerator.Next(0, lstMonthRu.Count);
+	strMonth = lstMonthRu[RND];
+} else {
+	List<string> lstMonthEng = new List<string>() {
+		"January",
+		"February",
+		"March",
+		"April",
+		"May",
+		"June",
+		"July",
+		"August",
+		"September",
+		"October",
+		"November",
+		"December",	
+	};
+	int rnd = rndGenerator.Next(0, lstMonthEng.Count);
+	strMonth = lstMonthEng[rnd];
+}
+
+wHelper.SetElementValueXPath(Tab1, true, null, "//div[contains(@id, 'container2')]", 0, strMonth, ThrowErrors: false);
+instance.SendText("{ENTER}", 15);
+wHelper.SetElementValueXPath(Tab1, true, null, "//div[contains(@id, 'container3')]", 0, project.Profile.BornYear.ToString(), ThrowErrors: false);
+instance.SendText("{ENTER}", 15);
+
+string strSex = project.Profile.Sex.ToString();
+
+if (Tab1.FindElementByXPath("//h2[contains(@class, '_header')]",0).InnerText!="Впервые ВКонтакте?") {
+	if (strSex=="Female") {
+		Tab1.FindElementByXPath("//div[contains(@class, 'radiobtn')]",0).Click();
+	} else {
+		Tab1.FindElementByXPath("//div[contains(@class, 'radiobtn')]",1).Click();
+	}
+}
+
+Tab1.FindElementByXPath("//button[contains(@class, 'flat_button button_wide button_big_text')]", 0).Click();
+Tab1.WaitDownloading();
+
+//Выполняем SMS-активацию
+string strPhoneNumber = string.Empty;
+string strConfirmationCode = string.Empty;
+string strServiseSite = string.Empty;
+string strOperator = string.Empty;
+string strRegistrationID = string.Empty;
+//получаем номер телефона и id регистрации
+switch(strSmsService) {
+	case "SmsActivate.dll":
+		strServiseSite = "vk";
+		strOperator = "any";
+		break;
+	case "SmsReg.dll":
+		strServiseSite = "vk";
+		strOperator = "all";
+		break;
+	case "SmsVk.dll":
+		strServiseSite = "vk";
+		strOperator = "";
+		break;
+	case "SimSmsOrg.dll":
+		strServiseSite = "vk";
+		strOperator = "";
+		break;
+	case "GetSmsOnline.dll":
+		strServiseSite = "vk";
+		strOperator = "or";
+		break;
+	case "GiveSms.dll":
+		strServiseSite = "vk";
+		strOperator = "any";
+		break;
+	}
+	strRegistrationID = ZennoPoster.Sms.GetNumber(strSmsService, out strPhoneNumber, strServiseSite,strOperator);
+	if (strPhoneNumber==string.Empty
+		|| strPhoneNumber=="No numbers"
+		|| strPhoneNumber=="Недостаточно денег на счету"
+		|| strPhoneNumber=="0") {
+		strSmsService = new Regex(@".*(?=\.dll)").Match(strSmsService).Value;
+		project.SendWarningToLog(string.Format("Для сервиса {0} {1}",strSmsService, strPhoneNumber),true);
+		return "oki";
+	} else {
+		project.SendInfoToLog(string.Format("От сервиса {0} получен телефонный номер: {1}",strSmsService, strPhoneNumber), true);
+	}
+	if (strPhoneNumber==string.Empty
+		|| strPhoneNumber=="No numbers"
+		|| strPhoneNumber=="Недостаточно денег на счету"
+		|| strPhoneNumber=="0") {
+	project.SendInfoToLog("Нет свободных номеров не на одном из сервисов, повторите попытку позже",true);
+	return "oki";
+}
+
+//сообщаем сервису, что в ближайшие 2 минуты на номер придёт смс от указанного нами сервиса
+string strSetStatusResult = ZennoPoster.Sms.SetStatus(strSmsService, strRegistrationID, InterfacesLibrary.SmsService.Enums.SmsServiceStatus.Ready);
+//получаем код подтверждения или сообщаем об ошибке
+if (strSetStatusResult=="Ready") {
+	Tab1.FindElementByXPath("//input[@class='big_text ", 0).SetValue(string.Empty, "Middle");
+	Thread.Sleep(1000);
+	Tab1.FindElementByXPath("//input[@class='big_text ", 0).SetValue(strPhoneNumber, "Full");
+	Tab1.FindElementByXPath("//button[contains(@id, 'join_send_phone')]", 0).Click();
+	Tab1.WaitDownloading();
+	if (!Tab1.FindElementByXPath("//div[contains(@class, 'msg error')]",0).IsVoid) {
+		Tab1.FindElementByXPath("//div[contains(@class, 'msg error')]/descendant::a",0).Click();
+		Tab1.WaitDownloading();
+		Thread.Sleep(5000);
+		wHelper.ClickElementXPath(Tab1, true, null, "//div[contains(@class,'validation_last_button button_blue ')]/button", 0, ThrowErrors: false);
+	}
+	Thread.Sleep(5000);
+	strConfirmationCode = ZennoPoster.Sms.GetStatus(strServiseSite, strRegistrationID);
+}else{
+	project.SendErrorToLog("STOP: Произошла ошибка. Сервис смс-активации не готов", true);
+	return "error";
+}
+//заполняем поле кодом подтверждения
+Tab1.FindElementByXPath("//input[@id='join_code']", 0).SetValue(strConfirmationCode, "Full");
+project.SendInfoToLog("Получен код подтверждения: " + strConfirmationCode, true);
+//кликаем по кнопке "Готово"
+Tab1.FindElementByXPath("//button[contains(@id,'join_send_code')]", 0).Click();
+wHelper.SetElementValueXPath(Tab1, true, null, "//input[contains(@id, 'join_pass')]", 0, project.Profile.Password);
+wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@id, 'join_send_pass')]", 0);
+Tab1.WaitDownloading();
+
+project.SendInfoToLog(string.Format("Зарегистрирован аккаунт на имя: {0} и фамилию: {1} с паролем: {2}",project.Profile.Name, project.Profile.Surname, project.Profile.Password),true);
+project.Profile.Save(project.Directory + @"\AutoReg PRO\Cookie\" + strPhoneNumber + ".zpprofile", true, true, true, true, true); //сохранить профиль
+project.SendInfoToLog("Куки сохранены",true);
+project.SendErrorToLog("Заполняю профиль",true);
+wHelper.ClickElementXPath(Tab1, true, null, "//li[contains(@id, 'l_pr')]/descendant::span[text()=Моя Страница' or text()='My Profile']", 0);
+//получение фотки
+string strQuery = String.Format("https://yandex.ru/images/search?text="+ project.Profile.Name +"%20"+ project.Profile.Surname +"&isize=large");    
+strAPIResponse = ZennoPoster.HttpGet(strQuery, "", "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.BodyOnly, 30000,
+	AdditionalHeaders: new [] {"Accept-Language: ru-RU,ru;q=0.8,en-US;q=0.6,en;q=0.4"});
+		
+string strLinkUrl = new Regex(@"(?<=url"":""https).*?(?="","")").Match(strAPIResponse).Value;
+
+string strIMGPath = project.Directory + @"\Poster\"+ strPhoneNumber;
+project.Variables["imgPathYa"].Value = strIMGPath;
+strProxy = instance.GetProxy();
+string strCookies = instance.GetCookie();
+string strUserAgent = project.Profile.UserAgent;
+Directory.CreateDirectory(strIMGPath);
+
+string strIMG = "https"+strLinkUrl;
+
+string strFileDownloadResult = ZennoPoster.HttpGet(strIMG, strProxy, "UTF-8", ZennoLab.InterfacesLibrary.Enums.Http.ResponceType.File, 15000,
+strCookies, DownloadPath: strIMGPath, AdditionalHeaders: new [] {strUserAgent});
+
+List<string> lstImg = new List<string>();
+lstIMG.AddRange(Directory.GetFiles(strIMGPath)); //используйте SearchOption.TopDirectoryOnly если не нужно искать в поддиректориях
+
+instance.SetFileUploadPolicy("ok", ""); //устанавливаем политику загрузки файлов
+//Присваиваем переменной путь к папке с файлами
+int RaND = rndGenerator.Next(0, lstImg.Count);
+strResultFileName = lstImg[RaND];
+lstIMG.RemoveAt(0);
+project.SendInfoToLog("Получена аватарка: " + strResultFileName);
+Tab1.WaitDownloading();
+instance.SetFilesForUpload(strResultFileName);
+wHelper.ClickElementXPath(Tab1, true, null, "//a[contains(@id, 'page_load_photo')]", 0);
+wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@class, 'flat_button upload_btn ')]", 0);
+wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@id, 'owner_photo_done_edit')]", 0);
+wHelper.ClickElementXPath(Tab1, true, null, "//button[contains(@id, 'owner_photo_done')]", 0);
+
+for (int n=0; n <50; n++) {
+//	if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+	if (!Tab1.FindElementByXPath("//div[contains(@class, 'page_media_x')]",0).IsVoid || !Tab1.FindElementByXPath("//div[contains(@class, 'ui_thumb_x')]",0).IsVoid) {
+		project.SendInfoToLog("Ава подгрузилась",true);
+		break;
+	} else {
+		Thread.Sleep(500);
+		continue;
+	}
+}
+string strDate = DateTime.Now.ToString();
+project.Variables["fio"].Value = project.Profile.Name+ " " + project.Profile.Surname;
+project.Variables["login"].Value = strPhoneNumber;
+project.Variables["pass"].Value = project.Profile.Password;
+project.Variables["proxy"].Value = instance.GetProxy();
+project.Variables["useragent"].Value = project.Profile.UserAgent;
+project.Variables["BirthDay"].Value = project.Profile.BornDay.ToString()+"-"+strMonth+"-"+project.Profile.BornYear.ToString();
+project.Variables["RegData"].Value = strDate;
+project.Variables["DOPMailLogin"].Value = string.Empty;
+project.Variables["DOPMailPass"].Value = string.Empty;
+project.Variables["CC"].Value = "ВК";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//Проверяем успешность регистрации ящика (15 секунд)
+//Tab1.WaitDownloading(); //цикл ожидания ниже используется потому что до получения результата будет несколько "прогрузок" страницы.
+//string strRegisteredMail=String.Empty;
+//for(int y=0; y<15; y++) {
+//	strRegisteredMail=Tab1.FindElementByXPath("//i[@id='PH_user-email']", 0).GetAttribute("InnerHtml");
+//	if (strRegisteredMail.Contains(strSelectedAccount)){
+//		project.SendInfoToLog(String.Format("Успешно зарегистрирован ящик {0} для профиля {1} {2}", strRegisteredMail, project.Profile.Name, project.Profile.Surname), true);
+//		string AccPass = project.Profile.Password;
+//		project.Variables["email"].Value = strRegisteredMail + ":" + AccPass;
+//		Global.SpecialForms.AlertNotificator.Instance.DisplayAlert("Инфо", "Успешно зарегистрирован аккаунт на mail.ru", null, 15000);
+////		lstAkk.Add(strRegisteredMail + ":" + AccPass);
+//		break;
+//	}else{
+//		Thread.Sleep(1000);
+//	}
+//}
+//if (strRegisteredMail==String.Empty) {
+//	project.SendErrorToLog(String.Format("STOP: неизвестная ошибка при регистрации ящика для профиля  {0} {1}",  project.Profile.Name, project.Profile.Surname), true);
+//	return "error";
+//}
+
+
+
+
+
+
+
+
+
+//lstIMG.AddRange(Directory.GetFiles(strPathPromoImg)); //используйте SearchOption.TopDirectoryOnly если не нужно искать в поддиректориях
+//
+//if (blnPromoPost) {
+//	if (strPathPromoImg==string.Empty) {
+//		project.SendWarningToLog("Добавьте во входные настройки путь к папке с картинками и повторите попытку",true);
+//		return "oki";
+//	}
+//	project.ExecuteProject(rcg_path_auto, mapVars, true, true);
+//	wHelper.ClickElementXPath(Tab1, true, null, "//span[contains(@class,'left_label') and text()='Моя Страница']", 0, ThrowErrors: false);
+//	if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+//	wHelper.ClickElementXPath(Tab1, false, null, "//div[contains(@class, 'media_selector')]/a", 0);
+//	Tab1.WaitDownloading();
+//	instance.SetFileUploadPolicy("ok", ""); //устанавливаем политику загрузки файлов
+//	//Присваиваем переменной путь к папке с файлами
+//	int RND = rndGenerator.Next(0, lstIMG.Count);
+//	strResultFileName = lstIMG[RND];
+//	lstIMG.RemoveAt(RND);
+//	project.SendInfoToLog("Получена картинка: " + strResultFileName);
+//	Tab1.WaitDownloading();
+//	instance.SetFilesForUpload(strResultFileName);
+//	wHelper.ClickElementXPath(Tab1, true, null, "//span[contains(@id, 'upload')]", 0);
+//	for (int n=0; n <10; n++) {
+//		//if(((ZennoLab.InterfacesLibrary.ProjectModel.Collections.IContextExt)project.Context).IsInterrupted) return null;
+//		if (!Tab1.FindElementByXPath("//div[contains(@class, 'page_media_x')]",0).IsVoid || !Tab1.FindElementByXPath("//div[contains(@class, 'ui_thumb_x')]",0).IsVoid) {
+//			break;
+//		} else {
+//			Thread.Sleep(3000);
+//			continue;
+//		}
+//	}
+//	File.Delete(strResultFileName);
+//	string strSpintax = Macros.TextProcessing.Spintax(strTextPromo);
+//	wHelper.SetElementValueXPath(Tab1, true, null, "//div[@id='post_field']", 0, strSpintax);
+//	instance.WaitFieldEmulationDelay();
+//	// Эмулировать ввод текста
+//	instance.SendText("{HOME}", 15);
+//	wHelper.ClickElementXPath(Tab1, true, null, "//button[@id='send_post']", 0);
+//	project.ExecuteProject(rcg_path, mapVars, true, true);
+//	for (int h=0; h<10; h++) {
+//		wHelper.ClickElementXPath(Tab1, true, null, "//div[contains(@class, '_post')]/descendant::div[contains(@class, 'ui_actions_menu_icons')]", h);
+//		try {
+//			wHelper.ClickElementXPath(Tab1, true, null, "//div[contains(@class, 'post')]/descendant::a[contains(@class, 'ui_actions_menu_item') and text()='Закрепить']", h);
+//			break;
+//		} catch {
+//			continue;
+//		}
+//	}
+//	project.SendInfoToLog("Пост в ВК опубликован, ссылка сохранена в log.txt",true);
+//	string strNewPost = Tab1.FindElementByXPath("//a/span[contains(@class, 'rel_date rel_date_needs_update')]/ancestor::a",0).GetAttribute("href");
+//	lstLog.Add(strNewPost);	
+//}
